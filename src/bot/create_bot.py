@@ -1,5 +1,5 @@
 from aiogram import Bot, Dispatcher
-from .handlers import router, active_chats, set_crypto_monitor
+from .handlers import router, set_crypto_monitor
 
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
@@ -17,8 +17,8 @@ async def send_notification(chat_id: int, symbol: str = None, price_change: floa
     if status_message:
         message = status_message
     elif has_changes:
-        message = (f"🚨 <b>{symbol}</b> изменился на {price_change}%! "
-                   f"Текущая цена: {last_price}")
+        message = (f"🚨 <b>{symbol}</b> изменился на {price_change:.2f}%! "
+                   f"Текущая цена: {last_price:.2f}")
     else:
         message = "В последнее время существенных изменений в ценах криптовалют не обнаружено."
 
@@ -29,7 +29,7 @@ async def start_bot():
     logger.info("Starting the bot...")
 
     exchanges = [BybitExchange()]
-    crypto_monitor = CryptoBotController(exchanges, active_chats, send_notification)
+    crypto_monitor = CryptoBotController(exchanges, None, send_notification)
 
     # Передаем контроллер мониторинга в handlers через setter
     set_crypto_monitor(crypto_monitor)

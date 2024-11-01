@@ -5,6 +5,7 @@ from src.crypto.exchange import Exchange
 from src.utils.logging_config import logger
 from src.config import BYBIT_API_KEY, BYBIT_API_SECRET
 
+
 class BybitExchange(Exchange):
     """Класс для работы с API Bybit."""
 
@@ -60,6 +61,7 @@ class BybitExchange(Exchange):
                 logger.info(f"Ошибка при обработке данных для {ticker.get('symbol', 'неизвестный символ')}: {e}")
 
         return significant_changes
+
 
 # if __name__ == '__main__':
 #     bybit = BybitExchange()

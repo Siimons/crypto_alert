@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict
 
+
 class Exchange(ABC):
     """Абстрактный базовый класс для всех бирж."""
 

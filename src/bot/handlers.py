@@ -2,12 +2,13 @@ from aiogram import Router
 from aiogram.filters import CommandStart, Command
 from aiogram.types import Message
 
+from src.utils.redis_manager import RedisChatManager
 from src.utils.logging_config import logger
 
 router = Router()
 
-# Словарь для хранения ID чатов, чтобы знать, куда отправлять уведомления
-active_chats = set()
+redis_chat_manager = RedisChatManager()
+# username_str = None
 
 def set_crypto_monitor(monitor):
     """Функция для установки глобального экземпляра контроллера мониторинга."""
@@ -16,8 +17,12 @@ def set_crypto_monitor(monitor):
 
 @router.message(CommandStart())
 async def cmd_start(message: Message):
-    active_chats.add(message.chat.id)
-    logger.info(f"Пользователь {message.chat.id} начал взаимодействие с ботом.")
+    global username_str
+    username_str = message.from_user.username or str(message.from_user.id)
+    redis_chat_manager.add_chat(username=username_str, chat_id=message.chat.id)
+    
+    crypto_monitor.update_user(username_str)
+    logger.info(f"Пользователь {username_str} с ID {message.chat.id} начал взаимодействие с ботом.")
     await message.answer(
         "Привет! Я бот, который следит за резкими изменениями цен криптовалют. "
         "Используй /help, чтобы узнать доступные команды."
@@ -43,10 +48,11 @@ async def cmd_help(message: Message):
 
 @router.message(Command(commands=["start_monitor"]))
 async def cmd_start_monitor(message: Message):
-    # Это временная мера, так как при завершении работы программы active_chats удаляется(чувак он пока в оперативке находится)
-    active_chats.add(message.chat.id)
-
+    global username_str
+    username_str = message.from_user.username or str(message.from_user.id)
+    
     if crypto_monitor:
+        crypto_monitor.update_user(username_str)
         await crypto_monitor.start_monitoring()
         await message.answer("Мониторинг криптовалют запущен.")
     else:
