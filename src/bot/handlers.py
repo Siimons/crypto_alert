@@ -2,13 +2,9 @@ from aiogram import Router
 from aiogram.filters import CommandStart, Command
 from aiogram.types import Message
 
-from src.utils.redis_manager import RedisChatManager
 from src.utils.logging_config import logger
 
 router = Router()
-
-redis_chat_manager = RedisChatManager()
-# username_str = None
 
 def set_crypto_monitor(monitor):
     """Функция для установки глобального экземпляра контроллера мониторинга."""
@@ -17,12 +13,13 @@ def set_crypto_monitor(monitor):
 
 @router.message(CommandStart())
 async def cmd_start(message: Message):
-    global username_str
-    username_str = message.from_user.username or str(message.from_user.id)
-    redis_chat_manager.add_chat(username=username_str, chat_id=message.chat.id)
-    
-    crypto_monitor.update_user(username_str)
-    logger.info(f"Пользователь {username_str} с ID {message.chat.id} начал взаимодействие с ботом.")
+    """Команда /start для инициализации пользователя и начала работы с ботом."""
+    user_id = message.from_user.id
+    chat_id = message.chat.id
+    username = message.from_user.username or "Unknown"
+
+    crypto_monitor.initialize_user(user_id, chat_id, username)
+    logger.info(f"Пользователь с ID {user_id} начал взаимодействие с ботом.")
     await message.answer(
         "Привет! Я бот, который следит за резкими изменениями цен криптовалют. "
         "Используй /help, чтобы узнать доступные команды."
@@ -30,7 +27,7 @@ async def cmd_start(message: Message):
 
 @router.message(Command(commands=["help"]))
 async def cmd_help(message: Message):
-    logger.info(f"Пользователь {message.chat.id} запросил команду /help.")
+    """Команда /help для вывода доступных команд бота."""
     help_message = (
         "<b>Список команд:</b>\n\n"
         "/start - Начать работу с ботом\n"
@@ -38,9 +35,9 @@ async def cmd_help(message: Message):
         "/status - Показать текущий статус мониторинга\n"
         "/coin <b>{coin_name}</b> - Получить информацию о криптовалюте\n"
         "Например, /coin BTC покажет последние данные о биткоине.\n"
-        "/conf <b>{interval}</b> <b>{threshold}</b> - Установить новые параметры мониторинга:\n"
-        "    - <b>{interval}</b> - Интервал проверки цен в секундах\n"
-        "    - <b>{threshold}</b> - Порог изменения цены в процентах\n"
+        "/conf <b>{interval}</b> <b>{threshold}</b> - Установить параметры мониторинга:\n"
+        "    - <b>{interval}</b> - Интервал проверки цен (в секундах)\n"
+        "    - <b>{threshold}</b> - Порог изменения цены (в %)\n"
         "/start_monitor - Запустить мониторинг криптовалют\n"
         "/stop_monitor - Остановить мониторинг криптовалют\n"
     )
@@ -48,37 +45,41 @@ async def cmd_help(message: Message):
 
 @router.message(Command(commands=["start_monitor"]))
 async def cmd_start_monitor(message: Message):
-    global username_str
-    username_str = message.from_user.username or str(message.from_user.id)
-    
-    if crypto_monitor:
-        crypto_monitor.update_user(username_str)
-        await crypto_monitor.start_monitoring()
-        await message.answer("Мониторинг криптовалют запущен.")
-    else:
-        await message.answer("Ошибка: контроллер мониторинга не инициализирован.")
+    """Команда /start_monitor для запуска мониторинга."""
+    await crypto_monitor.start_monitoring()
+    await message.answer("Мониторинг криптовалют запущен.")
 
 @router.message(Command(commands=["stop_monitor"]))
 async def cmd_stop_monitor(message: Message):
-    if crypto_monitor:
-        await crypto_monitor.stop_monitoring()
-        await message.answer("Мониторинг криптовалют остановлен.")
-    else:
-        await message.answer("Ошибка: контроллер мониторинга не инициализирован.")
+    """Команда /stop_monitor для остановки мониторинга."""
+    await crypto_monitor.stop_monitoring()
+    await message.answer("Мониторинг криптовалют остановлен.")
 
 @router.message(Command(commands=["conf"]))
 async def cmd_conf(message: Message):
+    """Команда /conf для изменения параметров мониторинга."""
     try:
         _, interval, threshold = message.text.split()
         interval = int(interval)
         threshold = float(threshold)
         
-        if crypto_monitor:
-            await crypto_monitor.update_config(interval, threshold)
-            await message.answer(
-                f"Настройки обновлены: интервал = {interval} сек, порог изменения = {threshold}%."
-            )
-        else:
-            await message.answer("Ошибка: контроллер мониторинга не инициализирован.")
+        await crypto_monitor.update_config(interval, threshold)
+        await message.answer(
+            f"Настройки обновлены: интервал проверки = {interval} сек, порог изменения = {threshold}%."
+        )
     except ValueError:
         await message.answer("Ошибка: укажите интервал и порог изменения корректно.\nПример: /conf 60 5")
+
+@router.message(Command(commands=["status"]))
+async def cmd_status(message: Message):
+    """Команда /status для показа текущего статуса мониторинга."""
+    await crypto_monitor.get_status(message.chat.id)
+
+@router.message(Command(commands=["coin"]))
+async def cmd_coin_info(message: Message):
+    """Команда /coin для получения информации о криптовалюте."""
+    try:
+        _, coin_name = message.text.split()
+        await crypto_monitor.get_coin_info(message.chat.id, coin_name)
+    except ValueError:
+        await message.answer("Ошибка: укажите символ криптовалюты корректно.\nПример: /coin BTC")
