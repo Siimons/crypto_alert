@@ -50,4 +50,5 @@ async def start_bot():
     
     await set_bot_commands(bot)
     await bot.delete_webhook(drop_pending_updates=True)
+    await crypto_monitor.restart_active_sessions()
     await dp.start_polling(bot)

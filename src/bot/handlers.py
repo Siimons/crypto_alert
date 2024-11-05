@@ -1,4 +1,4 @@
-from aiogram import Router
+from aiogram import Router, F
 from aiogram.filters import CommandStart, Command
 from aiogram.types import Message
 
@@ -30,16 +30,13 @@ async def cmd_help(message: Message):
     """Команда /help для вывода доступных команд бота."""
     help_message = (
         "<b>Список команд:</b>\n\n"
-        "/start - Начать работу с ботом\n"
-        "/help - Вывести список команд\n"
+        "/start - Запустить бота\n"
+        "/help - Показать доступные команды\n"
         "/status - Показать текущий статус мониторинга\n"
-        "/coin <b>{coin_name}</b> - Получить информацию о криптовалюте\n"
-        "Например, /coin BTC покажет последние данные о биткоине.\n"
-        "/conf <b>{interval}</b> <b>{threshold}</b> - Установить параметры мониторинга:\n"
-        "    - <b>{interval}</b> - Интервал проверки цен (в секундах)\n"
-        "    - <b>{threshold}</b> - Порог изменения цены (в %)\n"
-        "/start_monitor - Запустить мониторинг криптовалют\n"
-        "/stop_monitor - Остановить мониторинг криптовалют\n"
+        "/coin - Запросить информацию о криптовалюте\n"
+        "/conf - Настроить параметры мониторинга\n"
+        "/start_monitor - Запустить мониторинг\n"
+        "/stop_monitor - Остановить мониторинг\n"
     )
     await message.answer(help_message)
 
@@ -57,18 +54,29 @@ async def cmd_stop_monitor(message: Message):
 
 @router.message(Command(commands=["conf"]))
 async def cmd_conf(message: Message):
-    """Команда /conf для изменения параметров мониторинга."""
+    """Команда /conf запрашивает у пользователя интервал и порог."""
+    await message.answer(
+        "Укажите параметры мониторинга через пробел:\n"
+        "- Интервал (в секундах): частота проверки цен\n"
+        "- Порог изменения (в %): процентное изменение для уведомлений\n\n"
+        "Пример: <code>60 5</code> — проверка каждую минуту, уведомление при изменении на 5%."
+    )
+
+@router.message(F.text.regexp(r"^\d+\s+\d+(\.\d+)?$"))
+async def process_conf_data(message: Message):
+    """Обработка интервала и порога изменения цены для команды /conf."""
     try:
-        _, interval, threshold = message.text.split()
+        interval, threshold = map(float, message.text.split())
         interval = int(interval)
-        threshold = float(threshold)
         
         await crypto_monitor.update_config(interval, threshold)
         await message.answer(
             f"Настройки обновлены: интервал проверки = {interval} сек, порог изменения = {threshold}%."
         )
     except ValueError:
-        await message.answer("Ошибка: укажите интервал и порог изменения корректно.\nПример: /conf 60 5")
+        await message.answer(
+            "Ошибка: укажите интервал и порог изменения корректно.\nПример: <code>60 5</code>"
+        )
 
 @router.message(Command(commands=["status"]))
 async def cmd_status(message: Message):
@@ -77,9 +85,13 @@ async def cmd_status(message: Message):
 
 @router.message(Command(commands=["coin"]))
 async def cmd_coin_info(message: Message):
-    """Команда /coin для получения информации о криптовалюте."""
-    try:
-        _, coin_name = message.text.split()
-        await crypto_monitor.get_coin_info(message.chat.id, coin_name)
-    except ValueError:
-        await message.answer("Ошибка: укажите символ криптовалюты корректно.\nПример: /coin BTC")
+    """Команда /coin запрашивает у пользователя символ криптовалюты."""
+    await message.answer(
+        "Введите символ криптовалюты, чтобы получить информацию.\nПример: <code>BTC</code>"
+    )
+
+@router.message(F.text.regexp(r"^[A-Za-z]{2,5}$"))
+async def process_coin_data(message: Message):
+    """Обработка данных для команды /coin."""
+    coin_name = message.text.upper()
+    await crypto_monitor.get_coin_info(message.chat.id, coin_name)

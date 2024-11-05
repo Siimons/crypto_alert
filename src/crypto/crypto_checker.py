@@ -49,13 +49,6 @@ class CryptoPriceMonitor:
         else:
             logger.warning(f"Нет данных для user_id={self.user_id}, требуется инициализация через /start")
 
-    def reset_user_data(self):
-        """Сбрасывает информацию о пользователе для корректного мониторинга и повторной инициализации."""
-        self.user_id = None
-        self.chat_id = None
-        self.username = None
-        logger.info("Данные пользователя сброшены. Требуется повторная инициализация.")
-
     async def monitor_price_changes(self):
         """Асинхронный метод для отслеживания изменений цен с уведомлением пользователя."""
         self.is_monitoring_active = True
@@ -164,3 +157,19 @@ class CryptoBotController(CryptoPriceMonitor):
                 return
 
         await self.send_notification(chat_id, status_message=f"❗ Монета {coin_name} не найдена.")
+
+    async def restart_active_sessions(self):
+        """Инициализирует все данные из Redis и перезапускает мониторинг для пользователей с активным статусом мониторинга."""
+        all_users = self.chat_manager.get_all_chats()
+        
+        for user_id, user_data in all_users.items():
+            self.user_id = user_id
+            self.chat_id = int(user_data['chat_id'])
+            self.username = user_data['username']
+            self.is_monitoring_active = user_data['is_monitoring_active']
+
+            logger.info(f"Инициализация данных для пользователя: user_id={user_id}, chat_id={self.chat_id}, мониторинг активен={self.is_monitoring_active}")
+
+            if self.is_monitoring_active:
+                logger.info(f"Перезапуск мониторинга для пользователя: user_id={user_id}, chat_id={self.chat_id}")
+                await self.start_monitoring()

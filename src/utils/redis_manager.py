@@ -143,6 +143,17 @@ class RedisChatManager(RedisConfig):
         logger.info("Получены данные всех активных чатов")
         return active_chats
 
+    def get_all_active_users(self) -> Dict[int, Dict[str, str]]:
+        """
+        Возвращает данные всех пользователей, у которых активен мониторинг.
+        
+        :return: Словарь с данными пользователей, у которых активен мониторинг.
+        """
+        all_chats = self.get_all_chats()
+        active_users = {user_id: data for user_id, data in all_chats.items() if data.get("is_monitoring_active", False)}
+        logger.info("Получены данные всех пользователей с активным мониторингом")
+        return active_users
+
 
 class RedisCacheManager(RedisConfig):
     """Класс для кэширования данных с бирж в Redis с поддержкой временного хранения."""
