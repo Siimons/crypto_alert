@@ -1,5 +1,7 @@
 import asyncio
-from typing import List, Callable, Optional
+
+from aiogram import Bot
+from typing import List
 
 from src.crypto.exchange import Exchange
 from src.utils.redis_manager import RedisChatManager, RedisCacheManager
@@ -11,18 +13,18 @@ from src.config import CRYPTO_CHECK_INTERVAL, PRICE_CHANGE_THRESHOLD
 class CryptoPriceMonitor:
     """Основной класс для мониторинга изменений на криптовалютных биржах и отправки уведомлений пользователю."""
     
-    def __init__(self, exchanges: List[Exchange], send_notification: Callable):
+    def __init__(self, exchanges: List[Exchange], bot: Bot):
         """
         Инициализация класса для мониторинга цен.
         
         :param exchanges: Список криптовалютных бирж для отслеживания.
-        :param send_notification: Функция для отправки уведомлений.
+        :param bot: Экземпляр Telegram бота.
         """
         self.exchanges = exchanges
+        self.bot = bot
         self.user_id = None
         self.chat_id = None
         self.username = None
-        self.send_notification = send_notification
         self.is_monitoring_active = False
         
         self.check_interval = CRYPTO_CHECK_INTERVAL
@@ -59,9 +61,9 @@ class CryptoPriceMonitor:
 
         while self.is_monitoring_active:
             for exchange in self.exchanges:
-                logger.info(f"Получение данных с биржи {exchange.__class__.__name__}...")
+                logger.info(f"Получение данных с биржи {exchange.get_exchange_name()}...")
 
-                cache_key = exchange.__class__.__name__
+                cache_key = exchange.get_exchange_name()
                 cached_data = self.cache_manager.get_data(cache_key)
 
                 if not cached_data:
@@ -77,29 +79,42 @@ class CryptoPriceMonitor:
                     self.price_change_threshold
                 )
 
+                exchange_name = exchange.get_exchange_name()
                 if significant_changes:
                     for coin in significant_changes:
-                        await self.notify_user(self.chat_id, symbol=coin['symbol'], price_change=coin['price_change'], last_price=coin['last_price'])
+                        await self.send_notification(
+                            symbol=coin['symbol'],
+                            price_change=coin['price_change'],
+                            last_price=coin['last_price'],
+                            exchange_name=exchange_name
+                        )
                 else:
-                    await self.notify_user(self.chat_id, has_changes=False)
+                    await self.send_notification(exchange_name=exchange_name, has_changes=False)
 
             await asyncio.sleep(self.check_interval)
 
-    async def notify_user(self, chat_id: int, symbol: Optional[str] = None, price_change: Optional[float] = None,
-                          last_price: Optional[float] = None, has_changes: bool = True):
+    async def send_notification(self, symbol: str = None, price_change: float = None,
+                                last_price: float = None, has_changes: bool = True,
+                                exchange_name: str = ""):
         """Отправляет уведомление пользователю о значительных изменениях цен или их отсутствии."""
-        if not chat_id:
+        if not self.chat_id:
             logger.warning("Невозможно отправить уведомление: отсутствует chat_id.")
             return
 
-        await self.send_notification(chat_id, symbol=symbol, price_change=price_change, last_price=last_price, has_changes=has_changes)
+        if has_changes:
+            message = (f"🚨 На бирже <b>{exchange_name}</b> монета <b>{symbol}</b> изменилась на "
+                       f"{price_change:.2f}%! Текущая цена: {last_price:.2f}")
+        else:
+            message = f"На бирже <b>{exchange_name}</b> существенных изменений в ценах криптовалют не обнаружено."
+
+        await self.bot.send_message(chat_id=self.chat_id, text=message)
 
 
 class CryptoBotController(CryptoPriceMonitor):
     """Класс для управления ботом и его командами, включая контроль мониторинга цен."""
     
-    def __init__(self, exchanges: List[Exchange], send_notification: Callable):
-        super().__init__(exchanges, send_notification)
+    def __init__(self, exchanges: List[Exchange], bot: Bot):
+        super().__init__(exchanges, bot)
         self.monitoring_task = None
 
     async def start_monitoring(self):
@@ -108,6 +123,7 @@ class CryptoBotController(CryptoPriceMonitor):
         if not self.monitoring_task or self.monitoring_task.done():
             logger.info(f"Запуск мониторинга для пользователя {self.user_id}")
             self.monitoring_task = asyncio.create_task(self.monitor_price_changes())
+            self.is_monitoring_active = True
         else:
             logger.info("Мониторинг уже запущен.")
 
@@ -129,34 +145,20 @@ class CryptoBotController(CryptoPriceMonitor):
         self.price_change_threshold = price_change_threshold
         logger.info(f"Обновлены параметры мониторинга: интервал = {self.check_interval} сек, порог изменения цены = {self.price_change_threshold}%")
 
-    async def get_status(self, chat_id: int):
-        """Отправляет статус мониторинга и проверяет актуальность данных пользователя."""
+    async def get_status(self):
+        """Отправляет статус мониторинга пользователю."""
         self.update_user_if_needed()
+        if not self.chat_id:
+            logger.warning(f"Не задан chat_id для пользователя {self.user_id}.")
+            return
+
         status_message = (
             f"📊 <b>Статус мониторинга</b>\n"
             f"Активен: {'Да' if self.is_monitoring_active else 'Нет'}\n"
             f"Интервал проверки: {self.check_interval} сек\n"
             f"Порог изменения цены: {self.price_change_threshold}%"
         )
-        await self.send_notification(chat_id, status_message=status_message)
-
-    async def get_coin_info(self, chat_id: int, coin_name: str):
-        """Отправляет пользователю информацию о выбранной криптовалюте и актуализирует данные пользователя."""
-        self.update_user_if_needed()
-        for exchange in self.exchanges:
-            data = await asyncio.get_running_loop().run_in_executor(None, exchange.fetch_market_data)
-            coin_info = next((coin for coin in data if coin['symbol'].lower() == coin_name.lower()), None)
-
-            if coin_info:
-                info_message = (
-                    f"💰 <b>{coin_info['symbol']}</b>\n"
-                    f"Текущая цена: {coin_info['last_price']}\n"
-                    f"Изменение за 24ч: {coin_info['price_change']}%"
-                )
-                await self.send_notification(chat_id, status_message=info_message)
-                return
-
-        await self.send_notification(chat_id, status_message=f"❗ Монета {coin_name} не найдена.")
+        await self.bot.send_message(chat_id=self.chat_id, text=status_message)
 
     async def restart_active_sessions(self):
         """Инициализирует все данные из Redis и перезапускает мониторинг для пользователей с активным статусом мониторинга."""
@@ -171,5 +173,8 @@ class CryptoBotController(CryptoPriceMonitor):
             logger.info(f"Инициализация данных для пользователя: user_id={user_id}, chat_id={self.chat_id}, мониторинг активен={self.is_monitoring_active}")
 
             if self.is_monitoring_active:
-                logger.info(f"Перезапуск мониторинга для пользователя: user_id={user_id}, chat_id={self.chat_id}")
-                await self.start_monitoring()
+                try:
+                    logger.info(f"Перезапуск мониторинга для пользователя: user_id={user_id}, chat_id={self.chat_id}")
+                    await self.start_monitoring()
+                except Exception as e:
+                    logger.error(f"Ошибка при перезапуске мониторинга для пользователя {user_id}: {e}")

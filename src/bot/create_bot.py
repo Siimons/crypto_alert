@@ -14,24 +14,12 @@ from src.utils.logging_config import logger
 
 bot = Bot(token=TELEGRAM_BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 
-async def send_notification(chat_id: int, symbol: str = None, price_change: float = None, last_price: float = None, has_changes: bool = True, status_message: str = None):
-    if status_message:
-        message = status_message
-    elif has_changes:
-        message = (f"🚨 <b>{symbol}</b> изменился на {price_change:.2f}%! "
-                   f"Текущая цена: {last_price:.2f}")
-    else:
-        message = "В последнее время существенных изменений в ценах криптовалют не обнаружено."
-
-    await bot.send_message(chat_id=chat_id, text=message)
-
 async def set_bot_commands(bot: Bot):
     """Установка списка команд для бота в интерфейсе Telegram."""
     commands = [
         BotCommand(command="start", description="Начать работу с ботом"),
         BotCommand(command="help", description="Список команд"),
         BotCommand(command="status", description="Текущий статус мониторинга"),
-        BotCommand(command="coin", description="Информация о криптовалюте"),
         BotCommand(command="conf", description="Настройки мониторинга"),
         BotCommand(command="start_monitor", description="Запуск мониторинга"),
         BotCommand(command="stop_monitor", description="Остановка мониторинга"),
@@ -43,7 +31,7 @@ async def start_bot():
     logger.info("Starting the bot...")
 
     exchanges = [BybitExchange()]
-    crypto_monitor = CryptoBotController(exchanges, send_notification)
+    crypto_monitor = CryptoBotController(exchanges, bot)
 
     set_crypto_monitor(crypto_monitor)
     dp.include_router(router)

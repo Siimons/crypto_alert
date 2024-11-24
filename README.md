@@ -41,7 +41,7 @@ BINANCE_API_KEY=<your_binance_api_key>
 KUCOIN_API_KEY=<your_kucoin_api_key>
 ```
 
-### 3. Создание и активация виртуального окружение (опционально):
+### 3. Создание и активация виртуального окружения:
 
 ```bash
 python3 -m venv venv

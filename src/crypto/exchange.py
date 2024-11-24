@@ -14,3 +14,8 @@ class Exchange(ABC):
     def filter_significant_changes(self, data: List[Dict], threshold: float) -> List[Dict]:
         """Фильтрует монеты с изменениями цен, превышающими пороговое значение."""
         pass
+
+    @abstractmethod
+    def get_exchange_name(self) -> str:
+        """Возвращает название биржи."""
+        pass

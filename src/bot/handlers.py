@@ -29,11 +29,10 @@ async def cmd_start(message: Message):
 async def cmd_help(message: Message):
     """Команда /help для вывода доступных команд бота."""
     help_message = (
-        "<b>Список команд:</b>\n\n"
+        "<b>Список команд:</b>\n"
         "/start - Запустить бота\n"
         "/help - Показать доступные команды\n"
         "/status - Показать текущий статус мониторинга\n"
-        "/coin - Запросить информацию о криптовалюте\n"
         "/conf - Настроить параметры мониторинга\n"
         "/start_monitor - Запустить мониторинг\n"
         "/stop_monitor - Остановить мониторинг\n"
@@ -81,17 +80,4 @@ async def process_conf_data(message: Message):
 @router.message(Command(commands=["status"]))
 async def cmd_status(message: Message):
     """Команда /status для показа текущего статуса мониторинга."""
-    await crypto_monitor.get_status(message.chat.id)
-
-@router.message(Command(commands=["coin"]))
-async def cmd_coin_info(message: Message):
-    """Команда /coin запрашивает у пользователя символ криптовалюты."""
-    await message.answer(
-        "Введите символ криптовалюты, чтобы получить информацию.\nПример: <code>BTC</code>"
-    )
-
-@router.message(F.text.regexp(r"^[A-Za-z]{2,5}$"))
-async def process_coin_data(message: Message):
-    """Обработка данных для команды /coin."""
-    coin_name = message.text.upper()
-    await crypto_monitor.get_coin_info(message.chat.id, coin_name)
+    await crypto_monitor.get_status()

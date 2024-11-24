@@ -62,8 +62,6 @@ class BybitExchange(Exchange):
 
         return significant_changes
 
-
-# if __name__ == '__main__':
-#     bybit = BybitExchange()
-#     market_data = bybit.fetch_market_data()
-#     significant_changes = bybit.filter_significant_changes(market_data, threshold=5.0)
+    def get_exchange_name(self) -> str:
+        """Возвращает название биржи."""
+        return "Bybit"
