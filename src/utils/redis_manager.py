@@ -2,7 +2,7 @@ import redis
 import json
 
 from decouple import config
-from typing import Optional, Dict
+from typing import Optional, Dict, Any
 
 from src.utils.logging_config import logger
 
@@ -66,6 +66,18 @@ class RedisChatManager(RedisConfig):
         )
         logger.info(f"Пользователь добавлен/обновлен: user_id='{user_id}', chat_id='{chat_id}', username='{username}', мониторинг активен={is_monitoring_active}")
 
+    def update_user(self, user_id: int, updates: Dict[str, Any]):
+        """
+        Обновляет данные пользователя в Redis.
+
+        :param user_id: Идентификатор пользователя.
+        :param updates: Словарь с обновляемыми данными.
+        """
+        self.reconnect_if_needed()
+        key = f"{self.hash_name}:{user_id}"
+        self.client.hset(key, mapping=updates)
+        logger.info(f"Обновлены данные пользователя user_id='{user_id}': {updates}")
+    
     def get_user_data(self, user_id: int) -> Optional[Dict[str, str]]:
         """
         Получает данные пользователя по user_id.
@@ -76,6 +88,7 @@ class RedisChatManager(RedisConfig):
         self.reconnect_if_needed()
         user_data = self.client.hgetall(f"{self.hash_name}:{user_id}")
         if user_data:
+            user_data["is_monitoring_active"] = bool(int(user_data.get("is_monitoring_active", 0)))
             logger.info(f"Получены данные для user_id='{user_id}': {user_data}")
             return user_data
         else:

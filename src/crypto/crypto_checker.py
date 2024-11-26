@@ -120,23 +120,40 @@ class CryptoBotController(CryptoPriceMonitor):
     async def start_monitoring(self):
         """Запускает мониторинг изменений цен асинхронно."""
         self.update_user_if_needed()
-        if not self.monitoring_task or self.monitoring_task.done():
+
+        if self.is_monitoring_active and self.monitoring_task and not self.monitoring_task.done():
+            logger.info(f"Попытка повторного запуска мониторинга для пользователя {self.user_id}")
+            message = "⚠️ Мониторинг уже запущен. Нет необходимости запускать его повторно."
+        else:
             logger.info(f"Запуск мониторинга для пользователя {self.user_id}")
             self.monitoring_task = asyncio.create_task(self.monitor_price_changes())
             self.is_monitoring_active = True
-        else:
-            logger.info("Мониторинг уже запущен.")
+            message = "✅ Мониторинг криптовалют успешно запущен!"
+
+        self.chat_manager.set_monitoring_status(self.user_id, True)
+        return message
 
     async def stop_monitoring(self):
         """Останавливает мониторинг изменений цен асинхронно."""
         self.update_user_if_needed()
-        if self.monitoring_task and not self.monitoring_task.done():
+
+        if not self.is_monitoring_active or not self.monitoring_task or self.monitoring_task.done():
+            logger.info(f"Попытка повторной остановки мониторинга для пользователя {self.user_id}")
+            message = "⚠️ Мониторинг уже остановлен. Нет необходимости останавливать его повторно."
+        else:
             logger.info(f"Остановка мониторинга для пользователя {self.user_id}")
             self.monitoring_task.cancel()
             self.is_monitoring_active = False
-            await self.monitoring_task
-        else:
-            logger.info("Мониторинг уже остановлен.")
+
+            try:
+                await self.monitoring_task
+            except asyncio.CancelledError:
+                logger.info("Задача мониторинга успешно отменена.")
+            
+            message = "🛑 Мониторинг криптовалют успешно остановлен!"
+        
+        self.chat_manager.set_monitoring_status(self.user_id, False)
+        return message
 
     async def update_config(self, check_interval: int, price_change_threshold: float):
         """Асинхронно обновляет параметры мониторинга."""
@@ -170,6 +187,8 @@ class CryptoBotController(CryptoPriceMonitor):
             self.username = user_data['username']
             self.is_monitoring_active = user_data['is_monitoring_active']
 
+            self.is_monitoring_active = bool(int(user_data.get('is_monitoring_active', '0')))
+            
             logger.info(f"Инициализация данных для пользователя: user_id={user_id}, chat_id={self.chat_id}, мониторинг активен={self.is_monitoring_active}")
 
             if self.is_monitoring_active:

@@ -22,7 +22,7 @@
 Сначала клонируйте репозиторий на локальную машину:
 
 ```bash
-git clone https://github.com/Siimons/crypto_alert
+git clone https://github.com/siimons/crypto_alert
 cd crypto_alert
 ```
 
@@ -99,7 +99,6 @@ docker run -d --env-file .env -p 8000:8000 crypto_alert
 - `/start` — Запустить бота и инициализировать пользователя.
 - `/help` — Показать доступные команды.
 - `/status` — Показать текущий статус мониторинга.
-- `/coin` — Запросить информацию о криптовалюте.
 - `/conf` — Настроить параметры мониторинга.
 - `/start_monitor` — Запустить мониторинг.
 - `/stop_monitor` — Остановить мониторинг.

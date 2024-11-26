@@ -42,14 +42,14 @@ async def cmd_help(message: Message):
 @router.message(Command(commands=["start_monitor"]))
 async def cmd_start_monitor(message: Message):
     """Команда /start_monitor для запуска мониторинга."""
-    await crypto_monitor.start_monitoring()
-    await message.answer("Мониторинг криптовалют запущен.")
+    response_message = await crypto_monitor.start_monitoring()
+    await message.answer(response_message)
 
 @router.message(Command(commands=["stop_monitor"]))
 async def cmd_stop_monitor(message: Message):
     """Команда /stop_monitor для остановки мониторинга."""
-    await crypto_monitor.stop_monitoring()
-    await message.answer("Мониторинг криптовалют остановлен.")
+    response_message = await crypto_monitor.stop_monitoring()
+    await message.answer(response_message)
 
 @router.message(Command(commands=["conf"]))
 async def cmd_conf(message: Message):
