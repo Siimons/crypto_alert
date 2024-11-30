@@ -7,7 +7,9 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.memory import MemoryStorage
 
 from src.crypto.crypto_checker import CryptoBotController
-from src.crypto.exchanges.bybit import BybitExchange
+
+from src.crypto.exchanges.bybit import Bybit
+from src.crypto.exchanges.kucoin import KuCoin
 
 from src.config import TELEGRAM_BOT_TOKEN
 from src.utils.logging_config import logger
@@ -30,7 +32,7 @@ async def start_bot():
     dp = Dispatcher(storage=MemoryStorage())
     logger.info("Starting the bot...")
 
-    exchanges = [BybitExchange()]
+    exchanges = [Bybit(), KuCoin()]
     crypto_monitor = CryptoBotController(exchanges, bot)
 
     set_crypto_monitor(crypto_monitor)

@@ -1,12 +1,13 @@
-from typing import List, Dict
 from pybit.unified_trading import HTTP
+
+from typing import List, Dict
 from src.crypto.exchange import Exchange
 
 from src.utils.logging_config import logger
 from src.config import BYBIT_API_KEY, BYBIT_API_SECRET
 
 
-class BybitExchange(Exchange):
+class Bybit(Exchange):
     """Класс для работы с API Bybit."""
 
     def __init__(self, api_key: str = BYBIT_API_KEY, secret_key: str = BYBIT_API_SECRET):
@@ -45,6 +46,10 @@ class BybitExchange(Exchange):
                 symbol = ticker['symbol']
                 last_price = float(ticker['lastPrice'])
                 prev_price_24h = float(ticker['prevPrice24h'])
+                
+                if prev_price_24h == 0:
+                    logger.warning(f"Пропущен тикер {symbol}, так как prev_price_24h равен 0.")
+                    continue
 
                 price_change = ((last_price - prev_price_24h) / prev_price_24h) * 100
 
@@ -58,7 +63,7 @@ class BybitExchange(Exchange):
                     # logger.info(f"Монета {symbol} отфильтрована: изменение {price_change:.2f}%")
                     
             except (TypeError, ValueError, KeyError) as e:
-                logger.info(f"Ошибка при обработке данных для {ticker.get('symbol', 'неизвестный символ')}: {e}")
+                logger.error(f"Ошибка при обработке данных для {ticker.get('symbol', 'неизвестный символ')}: {e}")
 
         return significant_changes
 
